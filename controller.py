@@ -5,16 +5,16 @@ class Controller:
     hand_Landmarks = None
     screen_width, screen_height = pyautogui.size()
     last_index_state = None
+    last_middle_state = None
     last_index_down_time = 0
     last_index_up_time = 0
+    last_middle_down_time = 0
     last_click_time = 0
-    click_count = 0
-    dragging = False
-    drag_start_time = 0
-    drag_min_duration = 0.5  # seconds to start drag
+    double_clicked = False
     left_clicked = False
     right_clicked = False
-    double_clicked = False
+    dragging = False
+    drag_ready = False
     prev_cursor_pos = None
     # Calibration: region of interest in camera frame (percentages)
     roi_left = 0.1
@@ -29,13 +29,17 @@ class Controller:
         Controller.middle_up = lm[12].y < lm[10].y
         Controller.ring_up = lm[16].y < lm[14].y
         Controller.little_up = lm[20].y < lm[18].y
-        Controller.thumb_up = lm[4].x < lm[3].x if lm[4].x < lm[2].x else lm[4].x > lm[3].x  # crude, not used for gestures
-        # Only index up (all others down)
-        Controller.only_index_up = Controller.index_up and not Controller.middle_up and not Controller.ring_up and not Controller.little_up
-        # Both index and middle up, others down
-        Controller.index_and_middle_up = Controller.index_up and Controller.middle_up and not Controller.ring_up and not Controller.little_up
-        # All fingers closed (down)
-        Controller.all_fingers_down = not Controller.index_up and not Controller.middle_up and not Controller.ring_up and not Controller.little_up
+        Controller.thumb_extended = abs(lm[4].x - lm[2].x) > 0.13
+        # Move mode: index and middle up, rest closed, thumb not extended
+        Controller.move_mode = Controller.index_up and Controller.middle_up and not Controller.ring_up and not Controller.little_up and not Controller.thumb_extended
+        # Left click gesture: index down, thumb extended, middle up, rest closed
+        Controller.left_click_gesture = (not Controller.index_up) and Controller.middle_up and not Controller.ring_up and not Controller.little_up and Controller.thumb_extended
+        # Drag ready: after left click gesture, thumb closes (not extended), only middle up
+        Controller.drag_ready_gesture = Controller.middle_up and not Controller.index_up and not Controller.ring_up and not Controller.little_up and not Controller.thumb_extended
+        # Drag stop: thumb extended again, only middle up
+        Controller.drag_stop_gesture = Controller.middle_up and not Controller.index_up and not Controller.ring_up and not Controller.little_up and Controller.thumb_extended
+        # Right click gesture: middle down event with thumb extended
+        Controller.right_click_gesture = (not Controller.middle_up) and Controller.thumb_extended
 
     @staticmethod
     def map_to_screen(x, y):
@@ -51,15 +55,18 @@ class Controller:
 
     @staticmethod
     def cursor_moving():
-        # Move cursor only if only index finger is up and not dragging
-        if Controller.only_index_up and not Controller.dragging:
-            point = 8
+        # Freeze mouse if thumb is extended
+        if Controller.thumb_extended:
+            return
+        # Move cursor only if move_mode is True
+        if Controller.move_mode:
+            point = 8  # index tip
             current_x, current_y = Controller.hand_Landmarks.landmark[point].x, Controller.hand_Landmarks.landmark[point].y
             x, y = Controller.get_position(current_x, current_y)
             pyautogui.moveTo(x, y, duration=0)
             Controller.prev_cursor_pos = (x, y)
         elif Controller.dragging:
-            # During drag, move cursor even if all fingers are down
+            # During drag, move cursor even if thumb is not extended and only middle is up
             point = 8
             current_x, current_y = Controller.hand_Landmarks.landmark[point].x, Controller.hand_Landmarks.landmark[point].y
             x, y = Controller.get_position(current_x, current_y)
@@ -69,51 +76,42 @@ class Controller:
     @staticmethod
     def detect_clicking():
         now = time.time()
-        # Detect index finger down/up transitions
         index_state = Controller.index_up
+        middle_state = Controller.middle_up
+        # --- Left Click & Double Click ---
         if Controller.last_index_state is None:
             Controller.last_index_state = index_state
-        # Index finger down event
-        if not index_state and Controller.last_index_state:
-            Controller.last_index_down_time = now
-        # Index finger up event
-        if index_state and not Controller.last_index_state:
-            Controller.last_index_up_time = now
-            # If not dragging, check for click/double click
-            if not Controller.dragging:
-                down_duration = Controller.last_index_up_time - Controller.last_index_down_time
-                if down_duration < 0.4:
-                    # Check for double click
-                    if now - Controller.last_click_time < 0.5:
-                        pyautogui.doubleClick()
-                        print("Double Click")
-                        Controller.last_click_time = 0
-                        Controller.double_clicked = True
-                    else:
-                        pyautogui.click()
-                        print("Left Click")
-                        Controller.last_click_time = now
-                        Controller.left_clicked = True
-        Controller.last_index_state = index_state
-
-        # Right click: both index and middle up, others down
-        if Controller.index_and_middle_up and not Controller.right_clicked:
+        if Controller.left_click_gesture and not Controller.last_index_state:
+            # Left click gesture detected (index just went down)
+            if now - Controller.last_click_time < 0.5:
+                pyautogui.doubleClick()
+                print("Double Click")
+                Controller.last_click_time = 0
+                Controller.double_clicked = True
+            else:
+                pyautogui.click()
+                print("Left Click")
+                Controller.last_click_time = now
+                Controller.left_clicked = True
+            Controller.drag_ready = True  # Prepare for possible drag
+        # --- Drag Start/Stop ---
+        if Controller.drag_ready and Controller.drag_ready_gesture and not Controller.dragging:
+            pyautogui.mouseDown(button="left")
+            Controller.dragging = True
+            print("Dragging Start")
+        if Controller.dragging and Controller.drag_stop_gesture:
+            pyautogui.mouseUp(button="left")
+            Controller.dragging = False
+            Controller.drag_ready = False
+            print("Dragging End")
+        # --- Right Click ---
+        if Controller.last_middle_state is None:
+            Controller.last_middle_state = middle_state
+        if Controller.right_click_gesture and Controller.last_middle_state:
             pyautogui.rightClick()
             print("Right Click")
             Controller.right_clicked = True
-        elif not Controller.index_and_middle_up:
+        else:
             Controller.right_clicked = False
-
-    @staticmethod
-    def detect_dragging():
-        now = time.time()
-        # Drag: all fingers closed (index down), hold for >drag_min_duration
-        if Controller.all_fingers_down and not Controller.dragging:
-            if Controller.last_index_down_time > 0 and (now - Controller.last_index_down_time) > Controller.drag_min_duration:
-                pyautogui.mouseDown(button="left")
-                Controller.dragging = True
-                print("Dragging Start")
-        elif not Controller.all_fingers_down and Controller.dragging:
-            pyautogui.mouseUp(button="left")
-            Controller.dragging = False
-            print("Dragging End")
+        Controller.last_index_state = index_state
+        Controller.last_middle_state = middle_state

@@ -23,7 +23,6 @@ while True:
         Controller.update_fingers_status()
         Controller.cursor_moving()
         Controller.detect_clicking()
-        Controller.detect_dragging()
 
    cv2.imshow('Hand Tracker', img)
    if cv2.waitKey(5) & 0xff == 27:

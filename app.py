@@ -22,8 +22,6 @@ while True:
         
         Controller.update_fingers_status()
         Controller.cursor_moving()
-        Controller.detect_scrolling()
-        Controller.detect_zoomming()
         Controller.detect_clicking()
         Controller.detect_dragging()
 

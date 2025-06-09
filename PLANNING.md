@@ -13,11 +13,19 @@ The project is a Python desktop application designed to control the mouse cursor
 2.  **Frame Processing Loop:** Continuously captures frames from the webcam.
 3.  **Hand Detection:** MediaPipe processes each frame to identify hand landmarks.
 4.  **Gesture Interpretation:** If hand landmarks are detected, `controller.py`'s `Controller` class updates the status of fingers and calls functions to detect various gestures.
-5.  **Mouse Control:** Based on the detected gestures, PyAutoGUI functions are called to control the mouse cursor (move, click, drag, scroll, zoom).
+5.  **Mouse Control:** Based on the detected gestures, PyAutoGUI functions are called to control the mouse cursor (move, click, drag, right-click, double-click, freeze).
 6.  **Display:** The processed video feed with hand landmarks is displayed to the user.
 
+## Gesture Mapping (Updated)
+- **Move cursor:** Only index finger pointed up.
+- **Freeze cursor:** Index finger pointed up and thumb extended.
+- **Left click:** Index and thumb finger touch.
+- **Double click:** Index and thumb finger touch twice quickly.
+- **Drag and drop:** Index finger and thumb touch and move.
+- **Right-click:** Middle finger and thumb touch.
+
 ## Goals
--   Provide a fully functioning MVP for hand gesture-based mouse control.
+-   Provide a fully functioning MVP for hand gesture-based mouse control using the new gesture set.
 -   Implement a modular and clean code structure.
 -   Ensure all required dependencies are clearly documented with their latest stable versions.
 -   Maintain comprehensive and up-to-date documentation (`README.md` and `PLANNING.md`).

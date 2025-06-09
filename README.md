@@ -62,7 +62,7 @@ The Air Gesture Control application is built on a robust computer vision pipelin
 
 -   **MediaPipe Integration:** Utilizes Google's MediaPipe Hands solution for real-time, accurate detection of 21 3D hand landmarks from a live video stream.
 -   **OpenCV for Camera Interaction:** Employs OpenCV to access and manage the webcam feed, processing each frame for hand detection.
--   **PyAutoGUI for System Control:** Translates recognized hand gestures into system-level mouse and keyboard events using PyAutoGUI, allowing for cursor movement, clicks, drags, and scrolls.
+-   **PyAutoGUI for System Control:** Translates recognized hand gestures into system-level mouse and keyboard events using PyAutoGUI, allowing for cursor movement, clicks, drags, and more.
 -   **Modular Design:** The core logic is separated into `app.py` (main application flow, video processing) and `controller.py` (gesture recognition and mouse/keyboard control), promoting modularity and maintainability.
 
 ## Deployment Instructions
@@ -71,31 +71,15 @@ The Air Gesture Control application is built on a robust computer vision pipelin
 ## How to Run
 After installing the required libraries, run the `app.py` file in a Python environment with a webcam. The program will start capturing video from the webcam, and the mouse cursor can be controlled using the following hand gestures:
 
-  - **Cursor moving**: Raise all fingers together and move your hand to move the cursor and control it.
-
-  - **Cursor freezing**: Close your thumb and Raise all other fingers together freeze the cursor and prevent it from moving.
-
-  - **Drag and drop**: Close your hand into a fist and move it around to drag and drop objects.
-
-  - **Right-click**: Raise your index finger while keeping the other fingers closed.
-
-  - **Left-click**: Raise your middle finger while keeping the other fingers closed.
-
-  - **Double-click**: Raise your index and middle finger while keeping the other fingers closed.
-
-  - **Scroll up**: Move your index and middle finger towards the screen.
-
-  - **Scroll down**: Move your index and middle finger away from the screen.
-
-  - **Zoom in**: Pinch your index finger and thumb together.
-
-  - **Zoom out**: Spread your index finger and thumb apart.
-
-
+  - **Move cursor**: Only index finger pointed up.
+  - **Freeze cursor**: Index finger pointed up and thumb extended.
+  - **Left click**: Index and thumb finger touch.
+  - **Double click**: Index and thumb finger touch twice quickly.
+  - **Drag and drop**: Index finger and thumb touch and move.
+  - **Right-click**: Middle finger and thumb touch.
 
 ## Demo
 The repository includes some demo GIFs to help you understand how to use hand gestures to control the mouse. The GIFs show the different hand gestures and their corresponding mouse actions in action, making it easy to follow along and learn how to use the program. To view the demo GIFs, simply navigate to the `demo/` folder in the repository and open the GIFs using any image viewer.
-
 
 Hopefully these demos make it easier for you to get started with the program and learn how to use it effectively. If you have any questions or feedback, feel free to reach out to us!
 

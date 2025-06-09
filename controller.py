@@ -27,17 +27,21 @@ class Controller:
         Controller.middle_up = lm[12].y < lm[10].y
         Controller.ring_up = lm[16].y < lm[14].y
         Controller.little_up = lm[20].y < lm[18].y
-        Controller.thumb_extended = abs(lm[4].x - lm[2].x) > 0.05
+        # Robust thumb extension: require both x and y distance from index MCP
+        thumb_x = lm[4].x
+        thumb_y = lm[4].y
+        index_mcp_x = lm[2].x
+        index_mcp_y = lm[2].y
+        thumb_threshold = 0.05
+        Controller.thumb_extended = (abs(thumb_x - index_mcp_x) > thumb_threshold) and (abs(thumb_y - index_mcp_y) > thumb_threshold)
         # Move mode: index and middle up, ring down
         Controller.move_mode = Controller.index_up and Controller.middle_up and not Controller.ring_up
         # Freeze: index, middle, ring up
         Controller.freeze_mode = Controller.index_up and Controller.middle_up and Controller.ring_up
         # Left click gesture: index down, middle up, ring up
         Controller.left_click_gesture = (not Controller.index_up) and Controller.middle_up and Controller.ring_up
-        # Drag ready: index down >1s, middle up, ring up
-        Controller.drag_ready_gesture = (not Controller.index_up) and Controller.middle_up and Controller.ring_up
-        # Drag start: index down, middle up, ring down
-        Controller.drag_start_gesture = (not Controller.index_up) and Controller.middle_up and not Controller.ring_up
+        # Drag unlock: index down >2s, middle up, ring up
+        Controller.drag_unlock_gesture = (not Controller.index_up) and Controller.middle_up and Controller.ring_up
         # Drag stop: index up, middle up, ring up
         Controller.drag_stop_gesture = Controller.index_up and Controller.middle_up and Controller.ring_up
         # Right click: all up, thumb extended
@@ -57,12 +61,12 @@ class Controller:
 
     @staticmethod
     def cursor_moving():
-        # Freeze mouse if freeze_mode or drag is active
-        if Controller.freeze_mode or Controller.dragging:
+        # Freeze mouse if freeze_mode and not dragging
+        if (Controller.freeze_mode and not Controller.dragging):
             return
-        # Move cursor only if move_mode is True
-        if Controller.move_mode:
-            point = 8  # index tip
+        # Move cursor if move_mode or dragging
+        if Controller.move_mode or Controller.dragging:
+            point = 12  # middle finger tip
             current_x, current_y = Controller.hand_Landmarks.landmark[point].x, Controller.hand_Landmarks.landmark[point].y
             x, y = Controller.get_position(current_x, current_y)
             pyautogui.moveTo(x, y, duration=0)
@@ -87,17 +91,13 @@ class Controller:
                 pyautogui.click()
                 print("Left Click")
             Controller.left_click_pending = False
-        # --- Drag Ready (index down >1s, ring up) ---
-        if Controller.drag_ready_gesture and not index_state:
-            if Controller.last_index_down_time and (now - Controller.last_index_down_time) > 1.0:
-                Controller.drag_ready = True
-        # --- Drag Start (index down, ring goes down) ---
-        if Controller.drag_ready and Controller.drag_start_gesture and (Controller.last_ring_state is not None) and Controller.last_ring_state:
-            pyautogui.mouseDown(button="left")
-            Controller.dragging = True
-            Controller.drag_ready = False
-            print("Dragging Start")
-        # --- Drag Stop (all up) ---
+        # --- Drag unlock: index down >2s, middle up, ring up ---
+        if Controller.drag_unlock_gesture and not index_state:
+            if Controller.last_index_down_time and (now - Controller.last_index_down_time) > 2.0 and not Controller.dragging:
+                pyautogui.mouseDown(button="left")
+                Controller.dragging = True
+                print("Dragging Start")
+        # --- Drag stop: index up, middle up, ring up ---
         if Controller.dragging and Controller.drag_stop_gesture:
             pyautogui.mouseUp(button="left")
             Controller.dragging = False

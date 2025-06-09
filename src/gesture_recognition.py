@@ -21,7 +21,8 @@ class MockHandLandmarks:
             self.landmark.append(MockLandmark(l['x'], l['y'], l['z']))
 
 class GestureRecognizer:
-    def __init__(self):
+    # Update parameters to accept all required managers
+    def __init__(self, os_interactor, calibration_manager, custom_gesture_manager, visual_feedback_manager, hand_stability_manager):
         # Constants for gesture recognition
         self.CLICK_DISTANCE_THRESHOLD = 30 # Adjust based on hand size and camera distance
         self.SCROLL_THRESHOLD = 50 # Adjust sensitivity for scrolling
@@ -34,7 +35,6 @@ class GestureRecognizer:
         self.DOUBLE_CLICK_INTERVAL = 0.5 # Maximum time between two clicks for a double click
 
         # Custom Gesture variables
-        self.custom_gestures = {} # Dictionary to store custom gestures {gesture_name: {features: [...], action: "..."}}
         self.CUSTOM_GESTURES_FILE = "custom_gestures.json"
         self.CUSTOM_GESTURE_SIMILARITY_THRESHOLD = 0.1 # Adjust this threshold for custom gesture recognition (higher for features)
 
@@ -42,41 +42,15 @@ class GestureRecognizer:
         self.last_custom_action_time = 0
         self.CUSTOM_ACTION_COOLDOWN = 1.0 # Cooldown period in seconds after executing a custom action
 
-        # Gesture stability variables
-        self.last_gesture_landmarks = None
-        self.GESTURE_STABILITY_THRESHOLD = 0.01 # Maximum average landmark movement for stability (normalized coordinates)
-        self.STABILITY_FRAME_COUNT = 5 # Number of frames to check for stability
-        self.stability_buffer = []
+        # References to other managers
+        self.os_interactor = os_interactor
+        self.calibration_manager = calibration_manager # Store calibration_manager
+        self.custom_gesture_manager = custom_gesture_manager # Store custom_gesture_manager
+        self.visual_feedback_manager = visual_feedback_manager
+        self.hand_stability_manager = hand_stability_manager # Store hand_stability_manager
 
-        # State variable for custom action feedback display
-        self.last_action_display_time = 0
-        self.action_display_duration = 2 # Display action text for 2 seconds
-        self.recognized_gesture_text = ""
-        self.recognized_action_text = ""
-
-        # Load custom gestures on startup
-        # self.custom_gestures = self.load_custom_gestures(self.CUSTOM_GESTURES_FILE) # This will be added in a later step
-
-    # Function to load custom gestures from file
-    def load_custom_gestures(self, filename):
-        try:
-            # Check if file exists before trying to open
-            if os.path.exists(filename):
-                with open(filename, 'r') as f:
-                    return json.load(f)
-            else:
-                return {}
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error loading custom gestures: {e}")
-            return {}
-
-    # Function to save custom gestures to file
-    def save_custom_gestures(self, gestures, filename):
-        try:
-            with open(filename, 'w') as f:
-                json.dump(gestures, f, indent=4)
-        except IOError as e:
-            print(f"Error saving custom gestures: {e}")
+        # custom_gestures will be set by CustomGestureManager.set_gesture_recognizer
+        self.custom_gestures = {}
 
     # Function to calculate distance between two landmarks
     def calculate_distance(self, landmark1, landmark2, img_width=None, img_height=None):
@@ -169,28 +143,6 @@ class GestureRecognizer:
 
         return np.array(features)
 
-    # Function to check if hand is stable
-    def is_hand_stable(self, current_landmarks):
-        if len(self.stability_buffer) < self.STABILITY_FRAME_COUNT:
-            # Add current landmarks to buffer
-            # Convert landmark objects to list of tuples for easier handling
-            self.stability_buffer.append([(l.x, l.y, l.z) for l in current_landmarks.landmark])
-            return False # Not enough frames to check stability
-
-        # Compare current landmarks to the average of the buffer
-        avg_buffer_landmarks = np.mean(np.array(self.stability_buffer), axis=0).flatten().tolist()
-        current_landmarks_flat = np.array([(l.x, l.y, l.z) for l in current_landmarks.landmark]).flatten().tolist()
-
-        distance = np.linalg.norm(np.array(current_landmarks_flat) - np.array(avg_buffer_landmarks))
-
-        # print(f"Stability distance: {distance:.4f}")
-
-        # Remove the oldest frame from the buffer and add the current one
-        self.stability_buffer.pop(0)
-        self.stability_buffer.append([(l.x, l.y, l.z) for l in current_landmarks.landmark])
-
-        return distance < self.GESTURE_STABILITY_THRESHOLD
-
     # Function to process captured gesture landmarks
     def process_captured_gesture(self, landmarks_list):
         """Processes captured raw landmark data to extract a representative feature vector.
@@ -236,33 +188,34 @@ class GestureRecognizer:
         min_distance = float('inf')
         best_match_action = None
 
-        # Extract features from the current hand landmarks
+        if not self.custom_gesture_manager.custom_gestures: # Access via the custom_gesture_manager
+            return None
+
         current_features = self.extract_gesture_features(current_hand_landmarks)
 
-        for gesture_name, gesture_data in self.custom_gestures.items():
+        for gesture_name, gesture_data in self.custom_gesture_manager.custom_gestures.items():
             stored_features = np.array(gesture_data['features'])
+            action = gesture_data['action']
 
-            # Calculate Euclidean distance between current and stored feature vectors
+            # Ensure feature vectors have the same length
+            if len(current_features) != len(stored_features):
+                print(f"Warning: Feature length mismatch for {gesture_name}. Skipping.")
+                continue
+
             distance = np.linalg.norm(current_features - stored_features)
 
             if distance < min_distance:
-                 min_distance = distance
-                 best_match_action = gesture_data['action']
-                 # print(f"Potential match: {gesture_name} with feature distance {distance:.4f}")
+                min_distance = distance
+                best_match_action = action
+                # print(f"Potential match: {gesture_name}, Distance: {distance:.4f}")
 
-        if min_distance < self.CUSTOM_GESTURE_SIMILARITY_THRESHOLD:
-            # print(f"Matched gesture with feature distance {min_distance:.4f}")
-            # Update state for displaying recognized action
-            self.recognized_gesture_text = f"Recognized: {gesture_name}"
-            self.recognized_action_text = f"Action: {best_match_action}"
-            self.last_action_display_time = time.time()
-
+        if best_match_action and min_distance < self.CUSTOM_GESTURE_SIMILARITY_THRESHOLD:
+            # print(f"Custom gesture recognized: {best_match_action} (Distance: {min_distance:.4f})")
             return best_match_action
-
         return None
 
     # Method to check for predefined gestures
-    def recognize_predefined_gesture(self, hand_landmarks, hand_handedness, img_width, img_height):
+    def recognize_predefined_gesture(self, hand_landmarks, img_width, img_height):
         recognized_gesture = None
         action_to_perform = None
 
@@ -283,11 +236,6 @@ class GestureRecognizer:
         thumb_ip = hand_landmarks.landmark[mp.solutions.hands.HandLandmark.THUMB_IP]
         thumb_cmc = hand_landmarks.landmark[mp.solutions.hands.HandLandmark.THUMB_CMC]
 
-
-        # Convert to pixel coordinates for distance calculations where necessary
-        index_tip_x, index_tip_y = int(index_finger_tip.x * img_width), int(index_finger_tip.y * img_height)
-        thumb_tip_x, thumb_tip_y = int(thumb_tip.x * img_width), int(thumb_tip.y * img_height)
-
         # Check for predefined gestures
 
         # Left Click: Index finger and thumb tips are close
@@ -299,47 +247,55 @@ class GestureRecognizer:
                 action_to_perform = "double_click"
                 self.last_click_time = 0 # Reset last click time after a double click
                 print("Double Click")
+                # Use visual_feedback_manager to update feedback
+                self.visual_feedback_manager.update_action_feedback('Double Click!', '')
             else:
                 recognized_gesture = "Left Click"
                 action_to_perform = "left_click"
                 self.last_click_time = current_time
                 print("Left Click")
+                # Use visual_feedback_manager to update feedback
+                self.visual_feedback_manager.update_action_feedback('Left Click!', '')
+            return recognized_gesture, action_to_perform
 
-        # Scroll Up: All fingers except thumb are up and hand moves up (Y coordinate decreases significantly between frames)
-        # Need to track hand movement for scrolling - this requires state/history, maybe in the main loop or passed in
-        # For now, let's implement a static scroll gesture: all fingers straight up, thumb out.
+        # Scroll Up: All fingers except thumb are up
         elif (self.is_finger_up_by_angle(index_finger_tip, index_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP]) and
               self.is_finger_up_by_angle(middle_finger_tip, middle_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP]) and
               self.is_finger_up_by_angle(ring_finger_tip, ring_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.RING_FINGER_MCP]) and
               self.is_finger_up_by_angle(pinky_tip, pinky_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.PINKY_MCP]) and
               not self.is_thumb_up_by_angle(thumb_tip, thumb_ip, thumb_cmc)):
-             recognized_gesture = "Scroll Up"
-             action_to_perform = "scroll_up"
-             print("Scroll Up")
-
+              recognized_gesture = "Scroll Up"
+              action_to_perform = "scroll_up"
+              print("Scroll Up")
+              # Use visual_feedback_manager to update feedback
+              self.visual_feedback_manager.update_action_feedback('Scroll Up', '')
+              return recognized_gesture, action_to_perform
 
         # Scroll Down: All fingers except thumb are down.
-        # Implement a static scroll down gesture: all fingers bent, thumb out.
         elif (not self.is_finger_up_by_angle(index_finger_tip, index_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP]) and
               not self.is_finger_up_by_angle(middle_finger_tip, middle_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP]) and
               not self.is_finger_up_by_angle(ring_finger_tip, ring_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.RING_FINGER_MCP]) and
               not self.is_finger_up_by_angle(pinky_tip, pinky_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.PINKY_MCP]) and
               not self.is_thumb_up_by_angle(thumb_tip, thumb_ip, thumb_cmc)):
-             recognized_gesture = "Scroll Down"
-             action_to_perform = "scroll_down"
-             print("Scroll Down")
+                recognized_gesture = "Scroll Down"
+                action_to_perform = "scroll_down"
+                print("Scroll Down")
+                # Use visual_feedback_manager to update feedback
+                self.visual_feedback_manager.update_action_feedback('Scroll Down', '')
+                return recognized_gesture, action_to_perform
 
-        # Right Click: Index, Middle, Ring, Pinky fingers up, Thumb out. (Open Hand)
-        # This is currently similar to Scroll Up. Need a better distinction.
-        # Let's redefine Right Click as: Index and Middle fingers up, others down, thumb out.
+        # Right Click: Index and Middle fingers up, others down, thumb out.
         elif (self.is_finger_up_by_angle(index_finger_tip, index_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP]) and
               self.is_finger_up_by_angle(middle_finger_tip, middle_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP]) and
               not self.is_finger_up_by_angle(ring_finger_tip, ring_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.RING_FINGER_MCP]) and
               not self.is_finger_up_by_angle(pinky_tip, pinky_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.PINKY_MCP]) and
               not self.is_thumb_up_by_angle(thumb_tip, thumb_ip, thumb_cmc)):
-             recognized_gesture = "Right Click"
-             action_to_perform = "right_click"
-             print("Right Click")
+                recognized_gesture = "Right Click"
+                action_to_perform = "right_click"
+                print("Right Click")
+                # Use visual_feedback_manager to update feedback
+                self.visual_feedback_manager.update_action_feedback('Right Click!', '')
+                return recognized_gesture, action_to_perform
 
         # Speech-to-Text (Win+H): Pinky finger up, others down, thumb out.
         elif (not self.is_finger_up_by_angle(index_finger_tip, index_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP]) and
@@ -347,15 +303,70 @@ class GestureRecognizer:
               not self.is_finger_up_by_angle(ring_finger_tip, ring_finger_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.RING_FINGER_MCP]) and
               self.is_finger_up_by_angle(pinky_tip, pinky_pip, hand_landmarks.landmark[mp.solutions.hands.HandLandmark.PINKY_MCP]) and
               not self.is_thumb_up_by_angle(thumb_tip, thumb_ip, thumb_cmc)):
-             recognized_gesture = "Speech-to-Text"
-             action_to_perform = "speech_to_text"
-             print("Speech-to-Text")
+               recognized_gesture = "Speech-to-Text"
+               action_to_perform = "win+h"
+               print("Speech-to-Text")
+               # Use visual_feedback_manager to update feedback
+               self.visual_feedback_manager.update_action_feedback('Speech to Text', '')
+               return recognized_gesture, action_to_perform
 
-        # Update state for displaying recognized gesture (predefined)
-        if recognized_gesture:
-            self.recognized_gesture_text = f"Recognized: {recognized_gesture}"
-            # For predefined gestures, the action is directly related
-            self.recognized_action_text = f"Action: {action_to_perform}"
-            self.last_action_display_time = time.time()
+        return None, None
 
-        return recognized_gesture, action_to_perform
+    def recognize_gestures_and_perform_actions(self, hand_landmarks, img_width, img_height, is_hand_stable):
+        current_time = time.time()
+
+        # Try to recognize a custom gesture first if hand is stable and not on cooldown
+        # recognized_action = None # Temporarily disable custom gestures
+        # if is_hand_stable and (current_time - self.last_custom_action_time > self.CUSTOM_ACTION_COOLDOWN): # Temporarily disable custom gestures
+        #     recognized_action = self.recognize_custom_gesture(hand_landmarks) # Temporarily disable custom gestures
+
+        #     if recognized_action: # Temporarily disable custom gestures
+        #         # Perform the custom action # Temporarily disable custom gestures
+        #         if recognized_action == 'left_click': # Temporarily disable custom gestures
+        #             self.os_interactor.left_click() # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Left Click") # Temporarily disable custom gestures
+        #         elif recognized_action == 'double_click': # Temporarily disable custom gestures
+        #             self.os_interactor.double_click() # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Double Click") # Temporarily disable custom gestures
+        #         elif recognized_action == 'right_click': # Temporarily disable custom gestures
+        #             self.os_interactor.right_click() # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Right Click") # Temporarily disable custom gestures
+        #         elif recognized_action == 'scroll_up': # Temporarily disable custom gestures
+        #             self.os_interactor.scroll_up() # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Scroll Up") # Temporarily disable custom gestures
+        #         elif recognized_action == 'scroll_down': # Temporarily disable custom gestures
+        #             self.os_interactor.scroll_down() # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Scroll Down") # Temporarily disable custom gestures
+        #         elif recognized_action == 'win+h': # Temporarily disable custom gestures
+        #             self.os_interactor.press_hotkey('win', 'h') # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", "Speech-to-Text") # Temporarily disable custom gestures
+        #         else: # Assume it's a custom hotkey # Temporarily disable custom gestures
+        #             keys = recognized_action.split('+') # Temporarily disable custom gestures
+        #             self.os_interactor.press_hotkey(*keys) # Temporarily disable custom gestures
+        #             self.visual_feedback_manager.update_action_feedback(f"Custom: {recognized_action}", f"Hotkey: {recognized_action}") # Temporarily disable custom gestures
+
+        #         self.last_custom_action_time = current_time # Set cooldown # Temporarily disable custom gestures
+        #         return # Custom gesture recognized, no need to check predefined # Temporarily disable custom gestures
+
+        if is_hand_stable:
+            # Try recognizing predefined gestures first
+            recognized_gesture, action_to_perform = self.recognize_predefined_gesture(hand_landmarks, img_width, img_height)
+
+            if recognized_gesture and action_to_perform:
+                # Execute predefined action
+                if action_to_perform == "left_click":
+                    self.os_interactor.left_click()
+                elif action_to_perform == "double_click":
+                    self.os_interactor.double_click()
+                elif action_to_perform == "right_click":
+                    self.os_interactor.right_click()
+                elif action_to_perform == "scroll_up":
+                    self.os_interactor.scroll_up()
+                elif action_to_perform == "scroll_down":
+                    self.os_interactor.scroll_down()
+                elif action_to_perform == "win+h":
+                    self.os_interactor.press_hotkey('win', 'h')
+                # No need to update visual feedback here as it's done within recognize_predefined_gesture
+
+        # Add a small delay to prevent rapid actions and reduce CPU usage
+        time.sleep(0.01) # 10 milliseconds

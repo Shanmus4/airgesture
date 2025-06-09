@@ -62,7 +62,7 @@ The Air Gesture Control application is built on a robust computer vision pipelin
 
 -   **MediaPipe Integration:** Utilizes Google's MediaPipe Hands solution for real-time, accurate detection of 21 3D hand landmarks from a live video stream.
 -   **OpenCV for Camera Interaction:** Employs OpenCV to access and manage the webcam feed, processing each frame for hand detection.
--   **PyAutoGUI for System Control:** Translates recognized hand gestures into system-level mouse and keyboard events using PyAutoGUI, allowing for cursor movement, clicks, drags, and more.
+-   **PyAutoGUI for System Control:** Translates recognized hand gestures into system-level mouse and keyboard events using PyAutoGUI, allowing for cursor movement, left/right clicks, left/right drags, and freezing.
 -   **Modular Design:** The core logic is separated into `app.py` (main application flow, video processing) and `controller.py` (gesture recognition and mouse/keyboard control), promoting modularity and maintainability.
 
 ## Deployment Instructions
@@ -71,12 +71,12 @@ The Air Gesture Control application is built on a robust computer vision pipelin
 ## How to Run
 After installing the required libraries, run the `app.py` file in a Python environment with a webcam. The program will start capturing video from the webcam, and the mouse cursor can be controlled using the following hand gestures:
 
-  - **Move cursor**: Only index finger pointed up.
-  - **Freeze cursor**: Index finger pointed up and thumb extended.
-  - **Left click**: Index and thumb finger touch.
-  - **Double click**: Index and thumb finger touch twice quickly.
-  - **Drag and drop**: Index finger and thumb touch and move.
-  - **Right-click**: Middle finger and thumb touch.
+  - **Move cursor**: Index and middle fingers up, ring finger down.
+  - **Freeze cursor**: Index, middle, and ring fingers all up.
+  - **Left click**: Index down (tap), middle and ring up. (If index is held down for more than ~1s, drag will start instead.)
+  - **Left drag**: Hold index down for more than ~1.3s (with middle and ring up), then move your hand. Drag stops when all three (index, middle, ring) are up.
+  - **Right click**: Quick tap of little finger up (all other fingers up), or all up + thumb extended.
+  - **Right drag**: Hold little finger up for more than ~1.2s (all other fingers up), then move your hand. Drag stops when all fingers are up.
 
 ## Demo
 The repository includes some demo GIFs to help you understand how to use hand gestures to control the mouse. The GIFs show the different hand gestures and their corresponding mouse actions in action, making it easy to follow along and learn how to use the program. To view the demo GIFs, simply navigate to the `demo/` folder in the repository and open the GIFs using any image viewer.

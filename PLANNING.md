@@ -13,16 +13,16 @@ The project is a Python desktop application designed to control the mouse cursor
 2.  **Frame Processing Loop:** Continuously captures frames from the webcam.
 3.  **Hand Detection:** MediaPipe processes each frame to identify hand landmarks.
 4.  **Gesture Interpretation:** If hand landmarks are detected, `controller.py`'s `Controller` class updates the status of fingers and calls functions to detect various gestures.
-5.  **Mouse Control:** Based on the detected gestures, PyAutoGUI functions are called to control the mouse cursor (move, click, drag, right-click, double-click, freeze).
+5.  **Mouse Control:** Based on the detected gestures, PyAutoGUI functions are called to control the mouse cursor (move, left/right click, left/right drag, freeze).
 6.  **Display:** The processed video feed with hand landmarks is displayed to the user.
 
 ## Gesture Mapping (Updated)
-- **Move cursor:** Only index finger pointed up.
-- **Freeze cursor:** Index finger pointed up and thumb extended.
-- **Left click:** Index and thumb finger touch.
-- **Double click:** Index and thumb finger touch twice quickly.
-- **Drag and drop:** Index finger and thumb touch and move.
-- **Right-click:** Middle finger and thumb touch.
+- **Move cursor:** Index and middle fingers up, ring finger down.
+- **Freeze cursor:** Index, middle, and ring fingers all up.
+- **Left click:** Index down (tap), middle and ring up. (If index is held down for more than ~1s, drag will start instead.)
+- **Left drag:** Hold index down for more than ~1.3s (with middle and ring up), then move your hand. Drag stops when all three (index, middle, ring) are up.
+- **Right click:** Quick tap of little finger up (all other fingers up), or all up + thumb extended.
+- **Right drag:** Hold little finger up for more than ~1.2s (all other fingers up), then move your hand. Drag stops when all fingers are up.
 
 ## Goals
 -   Provide a fully functioning MVP for hand gesture-based mouse control using the new gesture set.

@@ -3,3 +3,4 @@ AI Assistant Reference/
 *.pyc
 __pycache__/ 
 myenv/
+.env

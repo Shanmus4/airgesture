@@ -1,90 +1,63 @@
-# Air Gesture Control
+# Air Gesture Desktop Control
 
-## Project Overview
-
-Air Gesture Control is a free and open-source application that allows you to control your computer's cursor and perform various actions using hand gestures detected via your webcam. This project utilizes hand tracking to interpret your hand movements and shapes, providing an alternative way to interact with your computer.
+A Python desktop app that lets you control your mouse and perform actions using hand gestures, with a live camera feed and controls in a modern web UI.
 
 ## Features
+- **Remi-based Web UI**: All controls and camera feed are in a single web interface (no separate OpenCV window).
+- **Calibration**: Calibrate your hand position to your screen with a step-by-step wizard.
+- **Gesture Legend**: See a live legend of all predefined gestures and their actions.
+- **Test Mode**: Use predefined gestures to control your desktop in real time.
 
-- Real-time cursor movement controlled by your index finger.
-- Predefined gestures for common actions: Left Click, Double Click, Right Click, Scroll Up, Scroll Down, and triggering the Speech-to-Text shortcut (Win+H on Windows).
-- Calibration mode to improve the accuracy of hand-to-screen mapping.
-- Ability to create and assign custom hand gestures to keyboard shortcuts.
+## Predefined Gestures
+- **Left Click**: Pinch index finger and thumb
+- **Double Click**: Two quick pinches
+- **Right Click**: Index and middle fingers up, others down, thumb out
+- **Scroll Up**: All fingers except thumb up
+- **Scroll Down**: All fingers except thumb down
+- **Speech-to-Text**: Only pinky up
 
-## GitHub Repository
+## Installation
 
-The source code for this project is available on GitHub:
-[https://github.com/Shanmus4/airgesture.git](https://github.com/Shanmus4/airgesture.git)
-
-## Installation Guide
-
-To set up and run the project locally, follow these steps:
-
-1.  **Ensure you have Python 3.10 or 3.11 installed.**
-
-2.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Shanmus4/airgesture.git
-    ```
-
-3.  **Navigate to the project directory:**
-    ```bash
-    cd airgesture
-    ```
-
-4.  **Create and activate a Python virtual environment named `myenv`:**
-    Using your compatible Python executable (e.g., `python3.10` or the full path like `C:\Users\s4sha\AppData\Local\Programs\Python\Python310\python.exe`):
-    ```bash
-    <path_to_python_executable> -m venv myenv
-    ```
-    Activate the virtual environment:
-    On Windows PowerShell:
-    ```bash
-    .\myenv\Scripts\activate
-    ```
-    On Git Bash or similar on Windows:
-    ```bash
-    source myenv/Scripts/activate
-    ```
-    On macOS and Linux:
-    ```bash
-    source myenv/bin/activate
-    ```
-
-5.  **Install the required dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *Note: I will create the `requirements.txt` file in a later step.*
-
-## How to Run
-
-1.  Ensure your virtual environment is activated.
-2.  Run the main script:
-    ```bash
-    python main.py
-    ```
-3.  A window showing your webcam feed will appear. You can now use hand gestures to control the cursor.
+1. **Clone the repo:**
+   ```sh
+   git clone <repo-url>
+   cd <repo-folder>
+   ```
+2. **Install dependencies:**
+   ```sh
+   pip install -r requirements.txt
+   ```
+3. **Run the app:**
+   ```sh
+   python src/app.py
+   ```
+4. **Open the UI:**
+   - Go to [http://localhost:8081](http://localhost:8081) in your browser.
 
 ## Usage
+- **Calibrate**: Click 'Calibrate' and follow the on-screen instructions to map your hand to your screen.
+- **Show Gestures**: Click to see a legend of all available gestures.
+- **Test**: Click 'Test' to start live gesture control. Use the gestures to control your desktop.
 
--   **Cursor Movement:** Move your index finger to move the cursor.
--   **Calibration:** Press the 'c' key to enter/exit calibration mode. Follow the on-screen instructions (currently basic - will be improved).
--   **Custom Gesture Recording:** Press the 'r' key to enter/exit recording mode. (Currently basic - will be improved with prompts).
--   **Quit:** Press the 'q' key to exit the application.
-
-## Technical Details (Brief)
-
-The project uses the MediaPipe library for hand tracking to detect 21 key landmarks on the hand. OpenCV is used for handling camera input and displaying the video feed. PyAutoGUI is used to control the mouse cursor and simulate keyboard shortcuts based on recognized hand gestures. Custom gestures are captured as landmark data and stored in a JSON file.
+## Architecture
+- **Python** backend with modular structure
+- **MediaPipe** for hand tracking
+- **OpenCV** for image processing
+- **PyAutoGUI** for OS interaction
+- **Remi** for the web-based UI
 
 ## Deployment
+- Local only (for now). To run on another machine, change the address in `src/app.py`.
 
-This is a desktop application and does not require deployment to a server. Users can run it locally on their machines after following the installation steps.
+## Notes
+- No secrets or credentials are required.
+- All camera and gesture overlays are shown in the web UI.
+- No OpenCV window is used.
+
+## Links
+- [GitHub Repo](<repo-url>)
+- (Add live demo link if available)
 
 ## Task Management
 
-Project tasks are managed using markdown files located in the `AI Assistant Reference/Tasks/` directory, categorized into `planning`, `ongoing`, and `completed`. The `PLANNING.md` file contains the overall project plan and architecture.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. *Note: I will create the LICENSE file in a later step.* 
+Project tasks are managed using markdown files located in the `AI Assistant Reference/Tasks/` directory, categorized into `

@@ -1,6 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.dist-info/
+*.egg-info/
+
+# Environments
+.env
+venv/
+myenv/
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+sdist/
+var/
+parts/
+bin/
+Scripts/
+include/
+
+# IDEs and other tools
+.vscode/
+.idea/
+*.swp
+*.bak
+*.orig
+*.rej
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# My custom ignored files
 custom_gestures.json
 AI Assistant Reference/
-*.pyc
-__pycache__/ 
-myenv/
-.env

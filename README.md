@@ -1,11 +1,12 @@
 # Air Gesture Desktop Control
 
-A Python desktop app that lets you control your mouse and perform actions using hand gestures, with a live camera feed and controls in a modern web UI.
+A Python desktop app that lets you control your mouse and perform actions using hand gestures, with a live camera feed shown in a separate window and controls in a web UI.
 
 ## Features
-- **Remi-based Web UI**: All controls and camera feed are in a single web interface (no separate OpenCV window).
+- **Separate Camera Feed**: The live camera feed is displayed in a dedicated OpenCV window for better performance.
+- **Remi-based Web UI**: A web interface provides controls for calibration, showing gestures, and starting the app.
 - **Calibration**: Calibrate your hand position to your screen with a step-by-step wizard.
-- **Gesture Legend**: See a live legend of all predefined gestures and their actions.
+- **Gesture Legend**: See a legend of all predefined gestures and their actions in the UI.
 - **Test Mode**: Use predefined gestures to control your desktop in real time.
 
 ## Predefined Gestures
@@ -29,30 +30,31 @@ A Python desktop app that lets you control your mouse and perform actions using 
    ```
 3. **Run the app:**
    ```sh
-   python src/app.py
+   python main.py
    ```
 4. **Open the UI:**
    - Go to [http://localhost:8081](http://localhost:8081) in your browser.
 
 ## Usage
-- **Calibrate**: Click 'Calibrate' and follow the on-screen instructions to map your hand to your screen.
-- **Show Gestures**: Click to see a legend of all available gestures.
-- **Test**: Click 'Test' to start live gesture control. Use the gestures to control your desktop.
+- **Camera Feed**: An OpenCV window will open showing your camera feed. Keep this window open.
+- **Calibrate**: Click 'Calibrate' in the UI and follow the on-screen instructions to map your hand to your screen.
+- **Show Gestures**: Click 'Show Gestures' in the UI to see a legend of all available gestures.
+- **Test**: Click 'Test' in the UI to start live gesture control. Use the gestures to control your desktop.
 
 ## Architecture
 - **Python** backend with modular structure
 - **MediaPipe** for hand tracking
-- **OpenCV** for image processing
+- **OpenCV** for image processing and camera feed display
 - **PyAutoGUI** for OS interaction
 - **Remi** for the web-based UI
 
 ## Deployment
-- Local only (for now). To run on another machine, change the address in `src/app.py`.
+- Local only (for now). To run on another machine, change the address in `main.py`.
 
 ## Notes
 - No secrets or credentials are required.
-- All camera and gesture overlays are shown in the web UI.
-- No OpenCV window is used.
+- The camera feed is displayed in a separate OpenCV window.
+- UI elements in the browser are for control and feedback only, not camera display.
 
 ## Links
 - [GitHub Repo](<repo-url>)
@@ -60,4 +62,4 @@ A Python desktop app that lets you control your mouse and perform actions using 
 
 ## Task Management
 
-Project tasks are managed using markdown files located in the `AI Assistant Reference/Tasks/` directory, categorized into `
+Project tasks are managed using markdown files located in the `AI Assistant Reference/Tasks/` directory, categorized into 

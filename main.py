@@ -10,7 +10,7 @@ from src.calibration import CalibrationManager
 from src.visual_feedback import VisualFeedbackManager
 from src.hand_stability import HandStabilityManager
 from src.gesture_recognition import GestureRecognizer
-from src.ui import GestureApp # Import the new UI
+from src.ui import GestureApp
 
 # DEBUG flag for controlling debug output
 DEBUG = True
@@ -111,10 +111,8 @@ class ApplicationManager:
 
     def start_calibration(self):
         self.mode = 'calibrate'
-        self.calibration_step = 0
         self.calibration_manager.start_calibration()
-        self.calibration_prompt = 'Calibration started. Place your finger at the prompted corner and press the button below.'
-        self.calibration_manager.calibration_status_time = time.time()
+        self.calibration_prompt = self.calibration_manager.calibration_status_text # Get prompt from manager
         self.app.update_calibration_ui(self.calibration_prompt)
 
     def capture_calibration_point(self):
@@ -130,18 +128,15 @@ class ApplicationManager:
             point_x = index_finger_tip.x
             point_y = index_finger_tip.y
 
-            point_key = self.calibration_points[self.calibration_step]
+            point_key = self.calibration_points[self.calibration_manager.current_calibration_point_index]
             self.calibration_manager.capture_point(point_key, point_x, point_y)
 
-            self.calibration_step += 1
-            if self.calibration_step >= len(self.calibration_points):
-                self.calibration_manager.end_calibration()
+            self.calibration_prompt = self.calibration_manager.calibration_status_text
+            if self.calibration_manager.current_calibration_point_index == self.calibration_manager.CALIBRATION_POINTS_COUNT:
                 self.calibration_done = True
-                self.calibration_prompt = 'Calibration complete!'
                 self.mode = 'idle'
                 self.app.update_calibration_ui(self.calibration_prompt, calibration_finished=True)
             else:
-                self.calibration_prompt = f'Captured {point_key}. Move to the next point.'
                 self.app.update_calibration_ui(self.calibration_prompt)
         else:
             self.app.set_feedback('No hand detected. Try again.')
@@ -157,17 +152,18 @@ class ApplicationManager:
         else:
             self.app.set_feedback('Please calibrate first!')
 
+def _start_remi_app():
+    start(GestureApp, address='0.0.0.0', port=8081, debug=True, update_interval=0.5)
+
 def main():
     app_manager = ApplicationManager()
     
     # Start Remi UI in a separate thread
-    remi_thread = threading.Thread(target=start, args=(GestureApp,), kwargs={'host': '0.0.0.0', 'port': 8081, 'debug': True, 'update_interval': 0.5})
+    remi_thread = threading.Thread(target=_start_remi_app)
     remi_thread.daemon = True
     remi_thread.start()
 
     # Wait for Remi to start and set the app instance
-    # A more robust solution would be to use a Queue or Event
-    # For now, loop and wait for app_instance to be set
     max_wait_time = 10 # seconds
     start_time = time.time()
     while GestureApp.app_instance is None and (time.time() - start_time) < max_wait_time:
@@ -177,9 +173,7 @@ def main():
         print("[ERROR] Remi UI app instance not initialized after waiting.")
         return # Exit if UI app didn't start properly
     
-    app_manager.set_app(GestureApp.app_instance) # Access the instance once it's set in ui.py
-
-    # Pass the app_manager's methods to the UI for callbacks
+    app_manager.set_app(GestureApp.app_instance) # Pass the app_manager instance to the UI instance
     GestureApp.app_instance.set_callbacks(
         start_calibration_callback=app_manager.start_calibration,
         capture_calibration_point_callback=app_manager.capture_calibration_point,

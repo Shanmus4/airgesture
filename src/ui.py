@@ -9,20 +9,34 @@ class GestureApp(App):
     app_instance = None # Class variable to hold the single app instance
 
     def __init__(self, *args):
-        if GestureApp.app_instance is not None:
-            raise Exception("Only one instance of GestureApp can be created.")
         super(GestureApp, self).__init__(*args)
         GestureApp.app_instance = self
 
+        self.app_manager = None # Will be set by main.py after initialization
         self.calibrate_callback = None
         self.capture_point_callback = None
         self.show_gestures_callback = None
         self.test_mode_callback = None
 
-        # UI elements
+        # UI elements (initialized in main)
         self.feedback_label = None
         self.legend_box = None
         self.next_point_btn = None
+
+        # Register on_pageshow event
+        self.onpageshow = self.on_page_show
+
+    def on_load(self):
+        if DEBUG: print("[UI] GestureApp on_load called.")
+        # Callbacks will now be set in on_page_show
+
+    def on_page_show(self):
+        if DEBUG: print("[UI] GestureApp on_pageshow called. Callbacks will be set externally.")
+        # Callbacks are set by main.py after app_instance is available
+        # The self.app_manager will also be set by main.py
+        # We can perform any UI setup that depends on external data here
+        if self.app_manager is None and DEBUG:
+            print("[UI] WARNING: app_manager is None in on_pageshow. Callbacks will not be active yet.")
 
     def set_callbacks(self, start_calibration_callback, capture_calibration_point_callback, show_gestures_callback, start_test_mode_callback):
         self.calibrate_callback = start_calibration_callback

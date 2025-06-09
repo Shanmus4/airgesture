@@ -34,7 +34,66 @@ class CalibrationManager:
         mouse_y = max(0, min(mouse_y, self.screen_height - 1))
         return mouse_x, mouse_y
 
-    # Methods for handling calibration key presses will be added next
+    def start_calibration(self):
+        """Initializes the calibration process."""
+        self.calibration_mode = True
+        self.calibration_points = {}
+        self.current_calibration_point_index = 0
+        self.mapping_matrix = None
+        self.calibration_status_text = "Calibration Started. Move to top-left corner."
+        self.calibration_status_time = time.time()
+        if DEBUG:
+            print("[Calibration] Calibration process started.")
+
+    def capture_point(self, point_key, hand_x, hand_y):
+        """Captures a calibration point from hand coordinates."""
+        if not self.calibration_mode:
+            if DEBUG:
+                print("[Calibration] Not in calibration mode. Cannot capture point.")
+            return
+
+        if self.current_calibration_point_index < self.CALIBRATION_POINTS_COUNT:
+            self.calibration_points[point_key] = (hand_x, hand_y)
+            self.calibration_status_text = f'Captured {point_key}.'
+            self.calibration_status_time = time.time()
+            self.current_calibration_point_index += 1
+            if DEBUG:
+                print(f'[Calibration] Captured {point_key}: ({hand_x}, {hand_y}). Index: {self.current_calibration_point_index}')
+
+            if self.current_calibration_point_index == self.CALIBRATION_POINTS_COUNT:
+                self.end_calibration()
+        else:
+            if DEBUG:
+                print("[Calibration] All points already captured.")
+
+    def end_calibration(self):
+        """Finalizes the calibration process by calculating the mapping matrix."""
+        if len(self.calibration_points) == self.CALIBRATION_POINTS_COUNT:
+            src_points = np.float32([
+                self.calibration_points['top-left'],
+                self.calibration_points['top-right'],
+                self.calibration_points['bottom-left'],
+                self.calibration_points['bottom-right']
+            ])
+
+            dst_points = np.float32([
+                [0, 0],
+                [self.screen_width, 0],
+                [0, self.screen_height],
+                [self.screen_width, self.screen_height]
+            ])
+
+            self.mapping_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+            self.calibration_mode = False
+            self.calibration_status_text = "Calibration Complete!"
+            self.calibration_status_time = time.time()
+            if DEBUG:
+                print("Calibration complete. Mapping matrix calculated.")
+        else:
+            self.calibration_status_text = "Calibration Failed: Not enough points captured."
+            self.calibration_status_time = time.time()
+            if DEBUG:
+                print("[Calibration] Calibration failed: Not enough points captured.")
 
     def process_key_press(self, key, results, image_shape, is_recording):
         """Processes key presses related to calibration mode.
@@ -47,68 +106,35 @@ class CalibrationManager:
         """
         img_height, img_width, _ = image_shape
 
-        # --- Handle Calibration Mode Toggle ---
+        # --- Handle Calibration Mode Toggle (from keyboard, kept for debugging/alternative) ---
         if key == ord('c'): # Press 'c' to toggle calibration mode
             # Toggle calibration mode only if not currently recording
             if not is_recording:
-                self.calibration_mode = not self.calibration_mode
-                if self.calibration_mode:
-                    print("Entering calibration mode. Press 's' to capture points.")
-                    self.calibration_points = {}
-                    self.current_calibration_point_index = 0
-                    self.mapping_matrix = None # Reset mapping on entering calibration
-                    self.calibration_status_text = "Entering Calibration Mode"
-                    self.calibration_status_time = time.time()
-                else:
-                    print("Exiting calibration mode.")
+                if not self.calibration_mode: # If currently not in calibration, start it
+                    self.start_calibration()
+                else: # If currently in calibration, exit it (without saving if not all points are captured)
+                    self.calibration_mode = False
                     self.calibration_status_text = "Exiting Calibration Mode"
                     self.calibration_status_time = time.time()
+                    print("Exiting calibration mode.")
             else:
-                 # Optionally provide feedback that calibration cannot be entered while recording
                  print("Cannot enter calibration mode while recording.")
                  self.calibration_status_text = "Cannot Calibrate Now"
                  self.calibration_status_time = time.time()
 
-        # --- Handle Capture Calibration Point ---
+        # --- Handle Capture Calibration Point (from keyboard, kept for debugging/alternative) ---
         elif self.calibration_mode and key == ord('s'): # Press 's' to capture calibration point
             if results.multi_hand_landmarks:
-                # Assuming only one hand is present for calibration
                 hand_landmarks = results.multi_hand_landmarks[0]
                 index_finger_tip = hand_landmarks.landmark[mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP]
                 hand_x = int((1 - index_finger_tip.x) * img_width)
                 hand_y = int(index_finger_tip.y * img_height)
 
-                if self.current_calibration_point_index < self.CALIBRATION_POINTS_COUNT:
-                    point_key = self.CALIBRATION_POINTS_ORDER[self.current_calibration_point_index]
-                    self.calibration_points[point_key] = (hand_x, hand_y)
-                    print(f'Captured {point_key}: ({hand_x}, {hand_y})')
-                    self.calibration_status_text = f'Captured {point_key}'
-                    self.calibration_status_time = time.time()
-                    self.current_calibration_point_index += 1
-
-                    if self.current_calibration_point_index == self.CALIBRATION_POINTS_COUNT:
-                        # Once all points are captured, calculate the perspective transformation matrix
-                        src_points = np.float32([
-                            self.calibration_points['top-left'],
-                            self.calibration_points['top-right'],
-                            self.calibration_points['bottom-left'],
-                            self.calibration_points['bottom-right']
-                        ])
-
-                        dst_points = np.float32([
-                            [0, 0],                          # Top-left of screen
-                            [self.screen_width, 0],               # Top-right of screen
-                            [0, self.screen_height],              # Bottom-left of screen
-                            [self.screen_width, self.screen_height]    # Bottom-right of screen
-                        ])
-
-                        self.mapping_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-                        print("Calibration complete. Mapping matrix calculated.")
-                        self.calibration_status_text = "Calibration Complete!"
-                        self.calibration_status_time = time.time()
-                else:
-                     self.calibration_status_text = "Calibration already completed."
-                     self.calibration_status_time = time.time()
+                point_key = self.CALIBRATION_POINTS_ORDER[self.current_calibration_point_index]
+                self.capture_point(point_key, hand_x, hand_y)
+            else:
+                self.calibration_status_text = "No hand detected. Try again."
+                self.calibration_status_time = time.time()
 
         # --- Handle Reset Calibration ---
         elif key == ord('R'): # Press 'R' to reset calibration
@@ -117,6 +143,7 @@ class CalibrationManager:
             self.mapping_matrix = None
             self.calibration_points = {}
             self.current_calibration_point_index = 0
+            self.calibration_mode = False # Ensure calibration mode is off after reset
             self.calibration_status_text = "Calibration Reset!"
             self.calibration_status_time = time.time()
 

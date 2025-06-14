@@ -29,6 +29,10 @@ class Controller:
     roi_top = 0.1
     roi_bottom = 0.9
 
+    smoothing_buffer = []
+    smoothing_window = 3  # last 3 movements
+    speed_scale = 0.85  # Reduce speed by 15%
+
     @staticmethod
     def update_fingers_status():
         lm = Controller.hand_Landmarks.landmark
@@ -62,7 +66,8 @@ class Controller:
     @staticmethod
     def cursor_moving():
         if Controller.freeze_mode and not (Controller.dragging or Controller.right_dragging):
-            Controller.prev_finger_pos = None  # Reset to avoid jump on resume
+            Controller.prev_finger_pos = None
+            Controller.smoothing_buffer = []  # Reset smoothing
             return
 
         if Controller.move_mode or Controller.dragging or Controller.right_dragging:
@@ -74,8 +79,19 @@ class Controller:
                     dx = (current_x - Controller.prev_finger_pos[0]) * Controller.screen_width
                     dy = (current_y - Controller.prev_finger_pos[1]) * Controller.screen_height
 
-                    if abs(dx) > 1 or abs(dy) > 1:  # Deadzone to reduce jitter
-                        pyautogui.moveRel(dx, dy, duration=0)
+                    dx *= Controller.speed_scale
+                    dy *= Controller.speed_scale
+
+                    # Add to smoothing buffer
+                    Controller.smoothing_buffer.append((dx, dy))
+                    if len(Controller.smoothing_buffer) > Controller.smoothing_window:
+                        Controller.smoothing_buffer.pop(0)
+
+                    avg_dx = sum(d[0] for d in Controller.smoothing_buffer) / len(Controller.smoothing_buffer)
+                    avg_dy = sum(d[1] for d in Controller.smoothing_buffer) / len(Controller.smoothing_buffer)
+
+                    if abs(avg_dx) > 1 or abs(avg_dy) > 1:  # Deadzone
+                        pyautogui.moveRel(avg_dx, avg_dy, duration=0)
 
                 Controller.prev_finger_pos = (current_x, current_y)
 
@@ -93,7 +109,7 @@ class Controller:
         ring_state = Controller.ring_up
         little_state = Controller.little_up
 
-        # ---- TRACK INDEX FOR LEFT ----
+        # ---- LEFT CLICK ----
         if not index_state and Controller.last_index_state:
             Controller.last_index_down_time = now
 
@@ -118,30 +134,38 @@ class Controller:
             Controller.dragging = False
             print("Dragging End (Left)")
 
-        # ---- LITTLE FINGER EVENTS ----
-        if little_state and not Controller.last_little_state:
+        # ---- RIGHT CLICK (SAFER) ----
+        lm = Controller.hand_Landmarks.landmark
+        pinky_tip = lm[20]
+        pinky_mcp = lm[17]
+        pinky_distance = abs(pinky_tip.y - pinky_mcp.y)
+
+        pinky_is_confidently_up = little_state and pinky_distance > 0.05
+
+        if pinky_is_confidently_up and not Controller.last_little_state:
             Controller.last_little_up_time = now
             Controller.right_drag_started = False
 
-        if little_state and not Controller.right_dragging and not Controller.right_drag_started:
+        if pinky_is_confidently_up and not Controller.right_dragging and not Controller.right_drag_started:
             if now - Controller.last_little_up_time > 1.2:
                 pyautogui.mouseDown(button="right")
                 Controller.right_dragging = True
                 Controller.right_drag_started = True
                 print("Dragging Start (Right)")
 
-        if not little_state and Controller.last_little_state:
+        if not pinky_is_confidently_up and Controller.last_little_state:
             held_duration = now - Controller.last_little_up_time
             if held_duration < 1.0:
                 pyautogui.rightClick()
                 print("Right Click")
 
-        if Controller.right_dragging and not little_state and Controller.index_up and Controller.middle_up and Controller.ring_up:
+        if Controller.right_dragging and Controller.index_up and Controller.middle_up and Controller.ring_up and not little_state:
             pyautogui.mouseUp(button="right")
             Controller.right_dragging = False
             Controller.right_drag_started = False
             print("Dragging End (Right)")
 
+        # Update last states
         Controller.last_index_state = index_state
         Controller.last_middle_state = middle_state
         Controller.last_ring_state = ring_state

@@ -20,6 +20,9 @@ class Controller:
     right_dragging = False
 
     prev_cursor_pos = None
+    prev_finger_pos = None
+
+    relative_mode = True  # Set True to use relative movement
 
     roi_left = 0.1
     roi_right = 0.9
@@ -59,13 +62,28 @@ class Controller:
     @staticmethod
     def cursor_moving():
         if Controller.freeze_mode and not (Controller.dragging or Controller.right_dragging):
+            Controller.prev_finger_pos = None  # Reset to avoid jump on resume
             return
+
         if Controller.move_mode or Controller.dragging or Controller.right_dragging:
             point = 12  # middle finger tip
             current_x, current_y = Controller.hand_Landmarks.landmark[point].x, Controller.hand_Landmarks.landmark[point].y
-            x, y = Controller.get_position(current_x, current_y)
-            pyautogui.moveTo(x, y, duration=0)
-            Controller.prev_cursor_pos = (x, y)
+
+            if Controller.relative_mode:
+                if Controller.prev_finger_pos is not None:
+                    dx = (current_x - Controller.prev_finger_pos[0]) * Controller.screen_width
+                    dy = (current_y - Controller.prev_finger_pos[1]) * Controller.screen_height
+
+                    if abs(dx) > 1 or abs(dy) > 1:  # Deadzone to reduce jitter
+                        pyautogui.moveRel(dx, dy, duration=0)
+
+                Controller.prev_finger_pos = (current_x, current_y)
+
+            else:
+                x, y = Controller.get_position(current_x, current_y)
+                pyautogui.moveTo(x, y, duration=0)
+                Controller.prev_cursor_pos = (x, y)
+                Controller.prev_finger_pos = (current_x, current_y)
 
     @staticmethod
     def detect_clicking():
@@ -101,12 +119,10 @@ class Controller:
             print("Dragging End (Left)")
 
         # ---- LITTLE FINGER EVENTS ----
-        # When little goes up (start timer)
         if little_state and not Controller.last_little_state:
             Controller.last_little_up_time = now
             Controller.right_drag_started = False
 
-        # When little stays up (check for drag start after 1.2s)
         if little_state and not Controller.right_dragging and not Controller.right_drag_started:
             if now - Controller.last_little_up_time > 1.2:
                 pyautogui.mouseDown(button="right")
@@ -114,21 +130,18 @@ class Controller:
                 Controller.right_drag_started = True
                 print("Dragging Start (Right)")
 
-        # Quick tap right click (little goes down within <1 sec)
         if not little_state and Controller.last_little_state:
             held_duration = now - Controller.last_little_up_time
             if held_duration < 1.0:
                 pyautogui.rightClick()
                 print("Right Click")
 
-        # End right drag
         if Controller.right_dragging and not little_state and Controller.index_up and Controller.middle_up and Controller.ring_up:
             pyautogui.mouseUp(button="right")
             Controller.right_dragging = False
             Controller.right_drag_started = False
             print("Dragging End (Right)")
 
-        # Update last states
         Controller.last_index_state = index_state
         Controller.last_middle_state = middle_state
         Controller.last_ring_state = ring_state
